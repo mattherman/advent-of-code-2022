@@ -1,5 +1,3 @@
-#!/usr/bin/dotnet fsi
-
 #load "../Common.fsx"
 
 open Common
