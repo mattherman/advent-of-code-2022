@@ -74,8 +74,18 @@ let parseInput input =
 
     (stacks, operations)
 
+let popMultiple (count: int) (stack: Stack<'a>) =
+    { 1 .. count }
+    |> Seq.toList
+    |> List.map (fun i -> stack.Pop())
+    |> List.rev
+    |> List.toSeq
+
+let pushMultiple (stack: Stack<'a>) (elements: seq<'a>) =
+    Seq.iter (fun element -> stack.Push(element)) elements
+
 let moveCrates (source: Stack<Crate>) (destination: Stack<Crate>) count =
-    { 1 .. count } |> Seq.iter (fun _ -> destination.Push(source.Pop()))
+    source |> popMultiple count |> pushMultiple destination
 
 let next (stacks: Stack<Crate>[], operations: Operation list) =
     match operations with
