@@ -125,13 +125,22 @@ let parseTerminalOutput (output: seq<string>) =
 let solve file =
     let rootDirectory = readInput file |> parseTerminalOutput
     printFileTree rootDirectory
-    printfn "Total size = %d" (calculateDirectorySize rootDirectory)
 
-    rootDirectory
-    |> findSubDirectories
-    |> List.map (fun d -> (d.Name, calculateDirectorySize d))
-    |> List.filter (fun (_, size) -> size < 100000)
-    |> List.sumBy snd
+    let totalUsedDiskSpace = calculateDirectorySize rootDirectory
+    printfn "Total used disk space = %d" totalUsedDiskSpace
+    let remainingDiskSpace = 70_000_000 - totalUsedDiskSpace
+    printfn "Remaining disk space = %d" remainingDiskSpace
+    let diskSpaceToFree = 30_000_000 - remainingDiskSpace
+    printfn "Disk space to free = %d" diskSpaceToFree
+
+    let directoriesOfSufficientSize =
+        rootDirectory
+        |> findSubDirectories
+        |> List.map (fun d -> (d.Name, calculateDirectorySize d))
+        |> List.filter (fun (_, size) -> size > diskSpaceToFree)
+    directoriesOfSufficientSize
+    |> List.minBy snd
+    |> snd
 
 let solution = solve "input.txt"
 printfn "%d" solution
