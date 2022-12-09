@@ -6,12 +6,15 @@ let treeHeight (loc: int * int) (grid: int[][]) =
     let (x, y) = loc
     grid.[y].[x]
 
-let getVisibleTrees (grid: int[][]) (height: int) =
-    // TODO: This is not handling the case where they are equal
-    // Ex. height = 5, seq = [5, 4, 3]
-    // It should count the first 5 as visible, but not continue after that so we can't blindly
-    // do <= height
-    Seq.takeWhile (fun otherTreeLoc -> (treeHeight otherTreeLoc grid) < height)
+let getVisibleTrees (grid: int[][]) (height: int) (trees: seq<int * int>) =
+    let mutable blocked = false
+    seq {
+        for otherTree in trees do
+            if not blocked then
+                if (treeHeight otherTree grid) >= height then
+                    blocked <- true
+                yield otherTree
+    }
 
 let calculateScenicScore (grid: int[][]) (treeLocation: int * int) =
     let (treeX, treeY) = treeLocation
@@ -32,7 +35,8 @@ let getTreeScores (grid: int[][]) =
     seq {
         for x in 0 .. (grid.Length - 1) do
             for y in 0 .. (grid.Length - 1) do
-                calculateScenicScore grid (x, y)
+                let tree = (x, y)
+                (tree, calculateScenicScore grid tree)
     }
 
 let parseGrid (input: seq<string>) =
@@ -41,10 +45,12 @@ let parseGrid (input: seq<string>) =
     |> Seq.toArray
 
 let solve file =
-    readInput file
-    |> parseGrid
-    |> getTreeScores
-    |> Seq.max
+    let idealLocation =
+        readInput file
+        |> parseGrid
+        |> getTreeScores
+        |> Seq.maxBy snd
+    idealLocation |> snd 
 
-let solution = solve "test_input.txt"
+let solution = solve "input.txt"
 printfn "%d" solution
