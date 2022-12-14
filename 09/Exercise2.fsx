@@ -46,7 +46,14 @@ let processMove (head: int * int) (tail: int * int) (direction: Direction) =
     let isOrthogonal = xDiff = 0 || yDiff = 0
 
     if isOrthogonal && (xDiffMagnitude > 1 || yDiffMagnitude > 1) then
-        tail |> move direction
+        if xDiff > 0 then
+            tail |> move Right
+        elif xDiff < 0 then
+            tail |> move Left
+        elif yDiff > 0 then
+            tail |> move Up
+        else
+            tail |> move Down
     elif xDiffMagnitude + yDiffMagnitude > 2 then 
         if xDiff > 0 && yDiff > 0 then
             tail |> move Up |> move Right
@@ -71,69 +78,90 @@ let processMoves (state: State) (direction: Direction) =
         |> List.rev
     { Knots = newKnots }
 
-let print (state: State) (header: string) =
-    let allPoints = (0, 0) :: state.Knots
-    let minX = List.minBy fst allPoints |> fst
-    let maxX = List.maxBy fst allPoints |> fst
-    let minY = List.minBy snd allPoints |> snd
-    let maxY = List.maxBy snd allPoints |> snd
-    let width = (maxX - minX) + 1
-    let height = (maxY - minY) + 1
-    let mutable grid = Array2D.zeroCreate<string> width height
+let getLogger (debug: bool) =
+    if not debug then
+        fun (_: State) (_: string) -> ()
+    else
+        fun (state: State) (header: string) ->
+            let allPoints = (0, 0) :: state.Knots
+            let minX = List.minBy fst allPoints |> fst
+            let maxX = List.maxBy fst allPoints |> fst
+            let minY = List.minBy snd allPoints |> snd
+            let maxY = List.maxBy snd allPoints |> snd
+            let width = (maxX - minX) + 1
+            let height = (maxY - minY) + 1
+            let grid = Array2D.zeroCreate<string> height width
 
-    let transform (x, y) =
-        (x - minX, y - minY)
+            let adjustWindow (x, y) =
+                (x - minX, y - minY)
+            let adjustOrigin (x: int, y: int) =
+                (x, height - 1 - y)
+            let transform = (adjustWindow >> adjustOrigin)
 
-    // (0, 0) (3, 5) (-1, -2)
-    // minX = -1, maxX = 3, width = 5
-    // minY = -2, maxY = 5, height = 8
-    //
-    // (0, 0)   => (x - minX, y - minY) => (1, 2)
-    // (3, 5)   => (x - minX, y - minY) => (4, 7)
-    // (-1, -2) => (x - minX, y - minY) => (0, 0)
-    // 00001
-    // 00000
-    // 00000
-    // 00000
-    // 00000
-    // 0s000
-    // 00000
-    // 20000
+            // s: (0, 0), 1: (3, 5), 2: (-1, -2)
+            // minX = -1, maxX = 3, width = 5
+            // minY = -2, maxY = 5, height = 8
+            //
+            // (0, 0)   => (x - minX, y - minY) => (1, 2)
+            // (3, 5)   => (x - minX, y - minY) => (4, 7)
+            // (-1, -2) => (x - minX, y - minY) => (0, 0)
+            //
+            // (1, 2)   => (x, height - 1 - y)  => (1, 3)
+            // (4, 7)   => (x, height - 1 - y)  => (4, 0)
+            // (0, 0)   => (x, height - 1 - y)  => (0, 7)
+            // ....1
+            // .....
+            // .....
+            // .....
+            // .s...
+            // .....
+            // .....
+            // 2....
 
-    let (originX, originY) = transform (0, 0)
-    Array2D.set grid originX originY "S"
-    let (headX, headY) = transform (List.head state.Knots)
-    Array2D.set grid headX headY "H"
+            let (originX, originY) = transform (0, 0)
+            Array2D.set grid originY originX "S"
+            let (headX, headY) = transform (List.head state.Knots)
+            Array2D.set grid headY headX "H"
 
-    state.Knots
-    |> List.tail
-    |> List.iteri (fun index knot ->
-        let (x, y) = transform knot
-        Array2D.set grid x y (string (index + 1)))
+            state.Knots
+            |> List.tail
+            |> List.iteri (fun index knot ->
+                let (x, y) = transform knot
+                let currentLabel = Array2D.get grid y x
+                if currentLabel = null || currentLabel = "S" then
+                    Array2D.set grid y x (string (index + 1)))
 
-    printfn "%s" header
-    for y in (height - 1) .. -1 .. 0 do
-        for x in (width - 1) .. -1 .. 0 do
-            let value = Array2D.get grid x y
-            match value with
-            | "" -> printf "."
-            | _ ->  printf "%s" value
-        printfn ""
+            printfn "%s" header
+            for y in 0 .. (height - 1) do
+                printf "\t"
+                for x in 0 .. (width - 1) do
+                    let value = Array2D.get grid y x
+                    match value with
+                    | null | "" -> printf ". "
+                    | _ ->  printf "%s " value
+                printfn ""
+            printfn $"({minX}, {minY})"
 
-let solve file =
+let solve file debug =
+    let print = getLogger debug
     let moves = readInput file |> parseMoves
     let initialState = { Knots = (List.replicate 10 (0, 0))}
+    print initialState "== Initial State =="
     let states =
         moves
         |> Seq.fold (fun states nextMove ->
             let currentState = List.head states
             let nextState = processMoves currentState nextMove
-            print nextState $"== State {List.length states} =="
+            print nextState $"\n== State {List.length states} [Move: {nextMove}] =="
             nextState :: states) [initialState]
     states
     |> List.map (fun state -> List.last state.Knots)
     |> List.distinct
     |> List.length
 
-let solution = solve "test_input.txt"
-printfn "%d" solution
+let args = fsi.CommandLineArgs
+if (args.Length > 1) then
+    let file = args.[1]
+    let debug = args.Length > 2 && args.[2] = "debug"
+    let solution = solve file debug
+    printfn "%d" solution

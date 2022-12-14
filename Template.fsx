@@ -5,5 +5,7 @@ open Common
 let solve file =
     0
 
-let solution = solve "test_input.txt"
-printfn "%d" solution
+let args = fsi.CommandLineArgs
+if (args.Length > 1) then
+    let solution = solve args.[1]
+    printfn "%d" solution
