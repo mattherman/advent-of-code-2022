@@ -13,13 +13,22 @@ type BinaryOperation = {
     Right: Value;
 }
 
+type Monkey = {
+    Items: int list;
+    Operation: BinaryOperation;
+}
+
+type State = {
+    Monkeys: Monkey list;
+}
+
 let group (index: int) (m: Match) =
         (m.Groups.Item index).Value
 
 let parseItems itemsLine =
-    match (String.split ": " itemsLine) with
-    | ["Staring items"; csv] ->
-        let items = String.split ", " csv
+    match (String.trimAndSplit ": " itemsLine) with
+    | ["Starting items"; csv] ->
+        let items = String.trimAndSplit ", " csv
         List.map int items
     | _ -> failwith $"Unable to parse items: {itemsLine}"
 
@@ -39,9 +48,9 @@ let parseOperator str =
     | _ -> failwith $"Failed to parse operator: {str}"
 
 let parseOperation operationLine =
-    match (String.split ": " operationLine) with
+    match (String.trimAndSplit ": " operationLine) with
     | ["Operation"; op] ->
-        let m = Regex.Match(@"new = ([a-zA-Z0-9]+) ([\+\*]) ([a-zA-Z0-9]+)", op)
+        let m = Regex.Match(op, @"new = ([a-zA-Z0-9]+) ([\+\*]) ([a-zA-Z0-9]+)")
         if (m.Success && m.Groups.Count = 4) then
             let left = m |> group 1 |> parseValue
             let operator = m |> group 2 |> parseOperator
@@ -51,7 +60,22 @@ let parseOperation operationLine =
             failwith $"Unable to parse operation: {op}"
     | _ -> failwith $"Unable to parse operation: {operationLine}"
 
+let parseMonkey lines =
+    match lines with
+    | [_; itemsLine; operationLine; _; _; _] ->
+        let items = parseItems itemsLine
+        let operation = parseOperation operationLine
+        { Items = items; Operation = operation }
+    | _ -> failwith $"""Unable to parse monkey: {String.concat "\n" lines}"""
+
+let parse input =
+    input
+    |> Seq.split ""
+    |> Seq.map parseMonkey
+
 let solve file =
+    let monkeys = readInput file |> parse |> Seq.toList
+    let initialState = { Monkeys = monkeys }
     0
 
 let args = fsi.CommandLineArgs
