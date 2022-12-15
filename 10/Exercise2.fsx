@@ -15,8 +15,6 @@ type Cycle = {
     End: Registers;
 }
 
-type Display = char[][]
-
 let parseInstruction line =
     match line with
     | "noop" -> NoOp
@@ -38,31 +36,21 @@ let runProgram instructions =
         cycles @ nextCycles) [initialState]
     |> Seq.tail
 
-let initializeDisplay (width: int) (height: int) : Display =
-    Array.init height (fun _ ->
-        Array.init width (fun _ -> '.'))
-
 let renderDisplay (width: int) (height: int) (cycles: Cycle list) =
-    let display = initializeDisplay 40 6
-    let mutable sprite = [(0,0); (1,0); (2,0)]
-
-    // TODO: There's no vertical position - the sprite just moves left/right and is applied to each row in turn
     let spritePosition value row =
         let column = value % width
         [(column - 1, row); (column, row); (column + 1, row)]
 
-    for y in 0 .. (height - 1) do
-        for x in 0 .. (width - 1) do
-            let cycleNumber = (x + 1) + (y * width)
-            printfn "%d: %A -> %A" cycleNumber sprite (x, y)
-            display.[y].[x] <-
-                if List.contains (x, y) sprite then '#' else '.'
-            let cycle = cycles.[cycleNumber - 1]
-            sprite <- spritePosition cycle.End.X y
+    let mutable sprite = spritePosition 1 0
 
     for y in 0 .. (height - 1) do
+        sprite <- spritePosition 1 y
         for x in 0 .. (width - 1) do
-            printf "%c" display.[y].[x]
+            let pixel = if List.contains (x, y) sprite then '#' else '.'
+            printf "%c" pixel
+            let cycleNumber = (x + 1) + (y * width)
+            let cycle = cycles.[cycleNumber - 1]
+            sprite <- spritePosition cycle.End.X y
         printfn ""
 
 let solve file =
@@ -72,9 +60,7 @@ let solve file =
         |> runProgram
         |> Seq.toList
     renderDisplay 40 6 cycles
-    0
 
 let args = fsi.CommandLineArgs
 if (args.Length > 1) then
-    let solution = solve args.[1]
-    printfn "%d" solution
+    solve args.[1]
