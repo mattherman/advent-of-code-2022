@@ -13,9 +13,16 @@ type BinaryOperation = {
     Right: Value;
 }
 
+type Test = {
+    DivisibleByCondition: int;
+    IfTrueTarget: int;
+    IfFalseTarget: int;
+}
+
 type Monkey = {
     Items: int list;
     Operation: BinaryOperation;
+    Test: Test;
 }
 
 type State = {
@@ -26,9 +33,9 @@ let group (index: int) (m: Match) =
         (m.Groups.Item index).Value
 
 let parseItems itemsLine =
-    match (String.trimAndSplit ": " itemsLine) with
-    | ["Starting items"; csv] ->
-        let items = String.trimAndSplit ", " csv
+    match itemsLine with
+    | String.Prefix "Starting items: " rest ->
+        let items = String.trimAndSplit ", " rest
         List.map int items
     | _ -> failwith $"Unable to parse items: {itemsLine}"
 
@@ -48,8 +55,8 @@ let parseOperator str =
     | _ -> failwith $"Failed to parse operator: {str}"
 
 let parseOperation operationLine =
-    match (String.trimAndSplit ": " operationLine) with
-    | ["Operation"; op] ->
+    match operationLine with
+    | String.Prefix "Operation: " op ->
         let m = Regex.Match(op, @"new = ([a-zA-Z0-9]+) ([\+\*]) ([a-zA-Z0-9]+)")
         if (m.Success && m.Groups.Count = 4) then
             let left = m |> group 1 |> parseValue
@@ -60,12 +67,31 @@ let parseOperation operationLine =
             failwith $"Unable to parse operation: {op}"
     | _ -> failwith $"Unable to parse operation: {operationLine}"
 
+let parseTest lines =
+    match lines with
+    | [testLine; trueLine; falseLine] ->
+        let condition =
+            match testLine with
+            | String.Prefix "Test: divisible by " value -> int value
+            | _ -> failwith $"Unable to parse condition: {testLine}"
+        let ifTrue =
+            match trueLine with
+            | String.Prefix "If true: throw to monkey " value -> int value
+            | _ -> failwith $"Unable to parse true target: {trueLine}"
+        let ifFalse =
+            match falseLine with
+            | String.Prefix "If false: throw to monkey " value -> int value
+            | _ -> failwith $"Unable to parse false target: {falseLine}"
+        { DivisibleByCondition = condition; IfTrueTarget = ifTrue; IfFalseTarget = ifFalse }
+    | _ -> failwith $"""Unable to parse test: {String.concat "\n" lines}"""
+
 let parseMonkey lines =
     match lines with
-    | [_; itemsLine; operationLine; _; _; _] ->
+    | _::itemsLine::operationLine::rest ->
         let items = parseItems itemsLine
         let operation = parseOperation operationLine
-        { Items = items; Operation = operation }
+        let test = parseTest rest
+        { Items = items; Operation = operation; Test = test }
     | _ -> failwith $"""Unable to parse monkey: {String.concat "\n" lines}"""
 
 let parse input =
